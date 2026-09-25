@@ -1,4 +1,4 @@
-name: Build Android APK
+name: Build Offline AI APK
 
 on:
   push:
@@ -13,22 +13,38 @@ jobs:
     - name: Checkout Code
       uses: actions/checkout@v4
 
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: 20
+
     - name: Set up Java
       uses: actions/setup-java@v4
       with:
         java-version: '17'
         distribution: 'temurin'
 
-    - name: Setup Android SDK
-      uses: android-actions/setup-android@v3
-
-    - name: Build APK
+    - name: Install Dependencies
       run: |
-        chmod +x gradlew || true
-        ./gradlew assembleDebug || gradle assembleDebug
+        npm install
+        npm install -g @capacitor/cli
 
-    - name: Upload APK
+    - name: Create Web Directory & Initialize Capacitor
+      run: |
+        mkdir -p www
+        cp index.html www/
+        npx cap init "Offline AI" "com.offline.ai.app" --web-dir "www"
+        npx cap add android
+
+    - name: Build Android APK
+      run: |
+        npx cap sync android
+        cd android
+        chmod +x gradlew
+        ./gradlew assembleDebug
+
+    - name: Upload APK Artifact
       uses: actions/upload-artifact@v4
       with:
         name: Offline-AI-App
-        path: app/build/outputs/apk/debug/app-debug.apk
+        path: android/app/build/outputs/apk/debug/app-debug.apk
