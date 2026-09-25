@@ -1,0 +1,13 @@
+{
+  "name": "my-offline-ai-app",
+  "version": "1.0.0",
+  "description": "My Offline AI App",
+  "main": "index.js",
+  "scripts": {
+    "build": "echo 'No build required'"
+  },
+  "dependencies": {
+    "@capacitor/android": "^6.0.0",
+    "@capacitor/core": "^6.0.0"
+  }
+}
