@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Offline Pocket AI</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #121212; color: #fff; height: 100vh; display: flex; flex-direction: column; }
+    header { background: #1f1f1f; padding: 16px; text-align: center; font-size: 1.2rem; font-weight: bold; border-bottom: 1px solid #333; }
+    #chat-box { flex: 1; padding: 16px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; }
+    .msg { max-width: 80%; padding: 12px 16px; border-radius: 12px; font-size: 0.95rem; line-height: 1.4; }
+    .user { background: #007acc; align-self: flex-end; color: #fff; }
+    .ai { background: #2a2a2a; align-self: flex-start; color: #e0e0e0; border: 1px solid #333; }
+    .status { font-size: 0.8rem; color: #888; text-align: center; margin: 8px 0; }
+    #input-area { padding: 12px; background: #1f1f1f; display: flex; gap: 8px; border-top: 1px solid #333; }
+    input { flex: 1; padding: 12px; border-radius: 8px; border: 1px solid #333; background: #2a2a2a; color: #fff; outline: none; }
+    button { padding: 12px 20px; border-radius: 8px; border: none; background: #007acc; color: #fff; font-weight: bold; cursor: pointer; }
+    button:disabled { background: #444; }
+  </style>
+</head>
+<body>
+
+  <header>Offline Pocket AI</header>
+
+  <div id="chat-box">
+    <div class="status" id="status-text">Click "Load AI Model" to download model for offline use.</div>
+  </div>
+
+  <div id="input-area">
+    <input type="text" id="user-input" placeholder="Type a message..." disabled />
+    <button id="action-btn" onclick="handleAction()">Load AI Model</button>
+  </div>
+
+  <script type="module">
+    import * as webllm from "https://esm.run/@mlc-ai/web-llm";
+
+    const selectedModel = "Qwen2.5-0.5B-Instruct-q4f16_1-MLC";
+    let engine = null;
+    let isLoaded = false;
+
+    const chatBox = document.getElementById("chat-box");
+    const statusText = document.getElementById("status-text");
+    const userInput = document.getElementById("user-input");
+    const actionBtn = document.getElementById("action-btn");
+
+    function appendMessage(role, text) {
+      const msg = document.createElement("div");
+      msg.className = `msg ${role}`;
+      msg.innerText = text;
+      chatBox.appendChild(msg);
+      chatBox.scrollTop = chatBox.scrollHeight;
+      return msg;
+    }
+
+    window.handleAction = async function() {
+      if (!isLoaded) {
+        actionBtn.disabled = true;
+        statusText.innerText = "Downloading AI Model... Please stay online.";
+        
+        try {
+          engine = await webllm.CreateMLCEngine(selectedModel, {
+            initProgressCallback: (progress) => {
+              statusText.innerText = progress.text;
+            }
+          });
+
+          isLoaded = true;
+          statusText.innerText = "Model loaded & cached! Works 100% offline now.";
+          userInput.disabled = false;
+          actionBtn.disabled = false;
+          actionBtn.innerText = "Send";
+        } catch (err) {
+          statusText.innerText = "Error: " + err.message;
+          actionBtn.disabled = false;
+        }
+      } else {
+        const text = userInput.value.trim();
+        if (!text) return;
+
+        appendMessage("user", text);
+        userInput.value = "";
+        actionBtn.disabled = true;
+
+        const aiMsg = appendMessage("ai", "...");
+        
+        try {
+          const completion = await engine.chat.completions.create({
+            messages: [{ role: "user", content: text }],
+            stream: true
+          });
+
+          let fullReply = "";
+          for await (const chunk of completion) {
+            const delta = chunk.choices[0]?.delta?.content || "";
+            fullReply += delta;
+            aiMsg.innerText = fullReply;
+            chatBox.scrollTop = chatBox.scrollHeight;
+          }
+        } catch (err) {
+          aiMsg.innerText = "Error generating response: " + err.message;
+        }
+
+        actionBtn.disabled = false;
+      }
+    };
+  </script>
+</body>
+</html>
